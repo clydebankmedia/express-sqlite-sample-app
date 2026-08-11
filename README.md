@@ -2,6 +2,8 @@
 
 A journal API for logging your cats' daily adventures, built with Express and SQLite. This project upgrades from in-memory storage to a real database that persists data between restarts.
 
+It uses [sql.js](https://sql.js.org), a pure-JavaScript build of SQLite — no native compilation, no build tools, no extra setup. It works the same on Windows, Mac, and Linux.
+
 ## Getting Started
 
 1. Clone the repository
@@ -38,7 +40,7 @@ You can test the routes using Thunder Client in VS Code, Postman, or curl.
 ```
 
 - `server.js` — the Express server. It defines REST routes that talk to the SQLite database: `GET /entries`, `POST /entries`, `PUT /entries/:id`, and `DELETE /entries/:id`.
-- `database.js` — the database layer. It connects to a local SQLite file (`journal.db`), creates the entries table, and seeds it with sample data if the table is empty.
+- `database.js` — the database layer. It loads a local SQLite file (`journal.db`) with sql.js, creates the entries table, seeds it with sample data if the table is empty, and saves the database back to disk after every change.
 
 ## What You'll Build
 
@@ -46,9 +48,9 @@ The server structure is done — the imports, middleware, route definitions, and
 
 1. **Create the table** — write the SQL statement that creates the entries table with id, title, text, and date columns. (`database.js`)
 2. **Seed the data** — check if the table is empty and insert 3 sample entries if it is. (`database.js`)
-3. **GET /entries** — use `db.prepare` to SELECT all entries and return them as JSON. (`server.js`)
-4. **POST /entries** — use `db.prepare` to INSERT a new entry with the title and text from the request body. (`server.js`)
-5. **DELETE /entries/:id** — use `db.prepare` to DELETE an entry by id and return a confirmation. (`server.js`)
+3. **GET /entries** — use `db.prepare` and `stmt.getAsObject` to SELECT all entries and return them as JSON. (`server.js`)
+4. **POST /entries** — use `db.run` to INSERT a new entry with the title and text from the request body, then save the database to disk. (`server.js`)
+5. **DELETE /entries/:id** — use `db.run` to DELETE an entry by id, save the database to disk, and return a confirmation. (`server.js`)
 
 The PUT route is already written as a reference so you can see the pattern.
 
