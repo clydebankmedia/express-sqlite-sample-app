@@ -1,0 +1,5 @@
+# Dependencies
+node_modules/
+
+# SQLite database file — created locally, should not be committed
+journal.db
