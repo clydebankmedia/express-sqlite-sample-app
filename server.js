@@ -35,17 +35,43 @@ async function startServer() {
 
   // GET /entries — return all journal entries.
   app.get("/entries", (req, res) => {
-    // TODO: SELECT all entries from the database and return them as JSON.
-    // (Hint: db.prepare a SELECT statement, loop with stmt.step() and
-    // stmt.getAsObject() to collect the rows, then stmt.free().)
+    // Prepare a SELECT, then step through the results one row at a time.
+    // stmt.step() moves to the next row (returns false when done) and
+    // stmt.getAsObject() reads the current row as a plain object.
+    const stmt = db.prepare("SELECT * FROM entries");
+    const entries = [];
+    while (stmt.step()) {
+      entries.push(stmt.getAsObject());
+    }
+    stmt.free(); // always free prepared statements when you're done
+
+    res.json(entries);
   });
 
   // POST /entries — add a new journal entry.
   app.post("/entries", (req, res) => {
-    // TODO: INSERT a new entry with the title and text from req.body.
-    // Return the new entry with a 201 status. (Hint: db.run the INSERT,
-    // use SELECT last_insert_rowid() to find the new entry's id, and call
-    // saveDatabase(db) so the entry survives a restart.)
+    const { title, text } = req.body;
+
+    // The title column is NOT NULL, so reject requests without one.
+    if (!title) {
+      return res.status(400).json({ error: "Title is required" });
+    }
+
+    db.run("INSERT INTO entries (title, text) VALUES (?, ?)", [title, text]);
+
+    // last_insert_rowid() is SQLite's way of telling us the id of the
+    // row we just created.
+    const newId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
+
+    // Fetch the new row (with its auto-generated id and date) to send back.
+    const stmt = db.prepare("SELECT * FROM entries WHERE id = ?");
+    const newEntry = stmt.getAsObject([newId]);
+    stmt.free();
+
+    // Save to disk so the new entry survives a restart.
+    saveDatabase(db);
+
+    res.status(201).json(newEntry);
   });
 
   // PUT /entries/:id — update an entry's title and text.
@@ -81,9 +107,18 @@ async function startServer() {
 
   // DELETE /entries/:id — remove an entry.
   app.delete("/entries/:id", (req, res) => {
-    // TODO: DELETE the entry with the matching id from req.params and
-    // return a confirmation message. (Hint: db.run the DELETE, check
-    // db.getRowsModified(), and call saveDatabase(db).)
+    // Delete the row with the matching id, then check getRowsModified()
+    // to see whether anything was actually deleted.
+    db.run("DELETE FROM entries WHERE id = ?", [req.params.id]);
+
+    if (db.getRowsModified() === 0) {
+      return res.status(404).json({ error: "Entry not found" });
+    }
+
+    // Save to disk so the deletion survives a restart.
+    saveDatabase(db);
+
+    res.json({ message: `Entry ${req.params.id} deleted` });
   });
 
   // -------------------------------------------------------------
